@@ -1,0 +1,25 @@
+# Dockerfile.vercel - Vercel auto-detects this file, builds the image, and
+# routes all traffic to it as a container-backed Vercel Function.
+# Docs: https://vercel.com/docs/functions/container-images
+
+FROM eclipse-temurin:17-jdk-alpine
+
+WORKDIR /app
+
+COPY src/ ./src/
+
+# Fetch the MySQL JDBC driver during the build - no need to download or
+# commit a jar file yourself, this happens automatically on every deploy.
+RUN apk add --no-cache wget \
+    && mkdir -p lib \
+    && wget -q -O lib/mysql-connector-j.jar \
+       https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/9.7.0/mysql-connector-j-9.7.0.jar
+
+RUN javac -d out src/*.java
+
+# Vercel defaults custom containers to port 80; overridable via the PORT
+# env var in project settings if you ever need a different port.
+ENV PORT=80
+EXPOSE 80
+
+CMD ["sh", "-c", "java -cp out:lib/mysql-connector-j.jar Main"]
