@@ -1,0 +1,37 @@
+# Vercel Dockerfile for Railway Reservation System (Java 17 + MySQL JDBC)
+# Keep this file at the ROOT of the GitHub repository:
+# railway-reservation-system-rajeev/Dockerfile.vercel
+
+FROM eclipse-temurin:17-jdk-alpine AS build
+
+WORKDIR /app
+
+# Download MySQL Connector/J during the image build.
+# This avoids needing to commit the JAR file into GitHub.
+ARG MYSQL_CONNECTOR_VERSION=9.4.0
+RUN wget -q -O /tmp/mysql-connector-j.jar \
+    "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/${MYSQL_CONNECTOR_VERSION}/mysql-connector-j-${MYSQL_CONNECTOR_VERSION}.jar"
+
+# Copy the Java source from the repository.
+COPY src/ ./src/
+
+# Compile all Java source files.
+RUN mkdir -p out && \
+    javac -cp /tmp/mysql-connector-j.jar -d out src/*.java
+
+FROM eclipse-temurin:17-jre-alpine
+
+WORKDIR /app
+
+# Copy compiled classes and JDBC driver.
+COPY --from=build /app/out ./out
+COPY --from=build /tmp/mysql-connector-j.jar ./mysql-connector-j.jar
+
+# Vercel provides PORT at runtime. Your Java HTTP server must listen on it.
+ENV PORT=80
+
+# Vercel container deployments expect an HTTP server.
+EXPOSE 80
+
+# Start the Java HTTP server.
+CMD ["sh", "-c", "java -cp '/app/out:/app/mysql-connector-j.jar' Main"]
